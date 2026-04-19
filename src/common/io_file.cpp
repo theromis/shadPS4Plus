@@ -1,6 +1,14 @@
 // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+// 32-bit Linux: enable glibc fseeko64/ftello64 for offsets past 2GB (LP64 macOS/Unix use fseeko).
+#if defined(__linux__) && !defined(__LP64__)
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+#define SHAD_IO_NEED_GLIBC_FSEEKO64 1
+#endif
+
 #include <vector>
 
 #include "common/alignment.h"
@@ -24,6 +32,15 @@
 #define fileno _fileno
 #define fseeko _fseeki64
 #define ftello _ftelli64
+#endif
+
+#ifndef _WIN32
+#ifndef SHAD_IO_NEED_GLIBC_FSEEKO64
+// macOS has no fseeko64; off_t is 64-bit on LP64 (arm64/x86_64), so fseeko/ftello cover >2GB PKGs.
+// Same for other LP64 Unix with a 64-bit off_t.
+static_assert(sizeof(off_t) >= 8,
+              "IOFile requires 64-bit off_t for PKG files over 2GB (use 64-bit or glibc fseeko64 build)");
+#endif
 #endif
 
 namespace Common::FS {
@@ -379,7 +396,13 @@ bool IOFile::Seek(s64 offset, SeekOrigin origin) const {
 
     errno = 0;
 
-    const auto seek_result = fseeko(file, static_cast<off_t>(offset), ToSeekOrigin(origin)) == 0;
+#if defined(SHAD_IO_NEED_GLIBC_FSEEKO64)
+    const auto seek_result =
+        fseeko64(file, static_cast<off64_t>(offset), ToSeekOrigin(origin)) == 0;
+#else
+    const auto seek_result =
+        fseeko(file, static_cast<off_t>(offset), ToSeekOrigin(origin)) == 0;
+#endif
 
     if (!seek_result) {
         const auto ec = std::error_code{errno, std::generic_category()};
@@ -398,7 +421,11 @@ s64 IOFile::Tell() const {
 
     errno = 0;
 
-    return ftello(file);
+#if defined(SHAD_IO_NEED_GLIBC_FSEEKO64)
+    return static_cast<s64>(ftello64(file));
+#else
+    return static_cast<s64>(ftello(file));
+#endif
 }
 
 u64 GetDirectorySize(const std::filesystem::path& path) {
