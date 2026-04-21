@@ -1,0 +1,243 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Build standalone pkg_extractor (extractor/) for Linux, Windows, and macOS.
+
+name: PKG Extractor
+
+on:
+  push:
+    branches: [ShadPs4Plus, main, master]
+    tags: ["v*"]
+  pull_request:
+    branches: [ShadPs4Plus, main, master]
+    paths:
+      - "extractor/**"
+      - "src/core/**"
+      - "src/common/**"
+      - ".github/workflows/pkg-extractor.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: pkg-extractor-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  BUILD_TYPE: RELEASE
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build clang zlib1g-dev
+
+      - name: Set artifact version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "PKG_VERSION=${GITHUB_REF#refs/tags/}" >> "$GITHUB_ENV"
+          else
+            echo "PKG_VERSION=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build Crypto++
+        run: |
+          set -eux
+          cd externals/cryptopp
+          make -j"$(nproc)"
+          mkdir -p ../../extractor/build/cryptopp/cryptopp
+          cp ./libcryptopp.a ../../extractor/build/cryptopp/cryptopp/libcryptopp.a
+
+      - name: Configure & build pkg_extractor
+        working-directory: extractor/build
+        run: |
+          set -eux
+          cmake --fresh .. \
+            -DCMAKE_BUILD_TYPE="${{ env.BUILD_TYPE }}" \
+            -DCMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE=ON \
+            -DCMAKE_C_COMPILER=clang \
+            -DCMAKE_CXX_COMPILER=clang++ \
+            -G Ninja
+          cmake --build . --config "${{ env.BUILD_TYPE }}" --parallel "$(nproc)"
+
+      - name: Package (binary + scripts)
+        working-directory: extractor/build
+        run: |
+          set -eux
+          strip -s ./pkg_extractor
+          out="ShadPs4Plus-PkgExtractor-${PKG_VERSION}-linux"
+          mkdir -p "$out"
+          cp ./pkg_extractor "$out/"
+          cp ../install_pkg.sh ../batch_install.sh ../readme_linux.txt "$out/"
+          chmod +x "$out/pkg_extractor" "$out/install_pkg.sh" "$out/batch_install.sh"
+          zip -r "../../pkg-extractor-linux-${PKG_VERSION}.zip" "$out"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pkg-extractor-linux-${{ env.PKG_VERSION }}
+          path: pkg-extractor-linux-${{ env.PKG_VERSION }}.zip
+
+  build-macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: brew install cmake ninja zlib
+
+      - name: Set artifact version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "PKG_VERSION=${GITHUB_REF#refs/tags/}" >> "$GITHUB_ENV"
+          else
+            echo "PKG_VERSION=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build Crypto++
+        run: |
+          set -eux
+          cd externals/cryptopp
+          make -j"$(sysctl -n hw.ncpu)"
+          mkdir -p ../../extractor/build/cryptopp/cryptopp
+          cp ./libcryptopp.a ../../extractor/build/cryptopp/cryptopp/libcryptopp.a
+
+      - name: Configure & build pkg_extractor
+        working-directory: extractor/build
+        run: |
+          set -eux
+          cmake --fresh .. \
+            -DCMAKE_BUILD_TYPE="${{ env.BUILD_TYPE }}" \
+            -DCMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE=ON \
+            -DCMAKE_C_COMPILER=clang \
+            -DCMAKE_CXX_COMPILER=clang++ \
+            -G Ninja
+          cmake --build . --config "${{ env.BUILD_TYPE }}" --parallel "$(sysctl -n hw.ncpu)"
+
+      - name: Package (binary + scripts)
+        working-directory: extractor/build
+        run: |
+          set -eux
+          strip -s ./pkg_extractor
+          out="ShadPs4Plus-PkgExtractor-${PKG_VERSION}-macos"
+          mkdir -p "$out"
+          cp ./pkg_extractor "$out/"
+          cp ../install_pkg.sh ../batch_install.sh ../readme_linux.txt "$out/"
+          chmod +x "$out/pkg_extractor" "$out/install_pkg.sh" "$out/batch_install.sh"
+          zip -r "../../pkg-extractor-macos-${PKG_VERSION}.zip" "$out"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pkg-extractor-macos-${{ env.PKG_VERSION }}
+          path: pkg-extractor-macos-${{ env.PKG_VERSION }}.zip
+
+  build-windows:
+    runs-on: windows-2022
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: CLANG64
+          update: true
+          install: >-
+            make
+            zip
+            mingw-w64-clang-x86_64-cmake
+            mingw-w64-clang-x86_64-ninja
+            mingw-w64-clang-x86_64-toolchain
+            mingw-w64-clang-x86_64-zlib
+
+      - name: Set artifact version
+        run: |
+          set -eux
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "PKG_VERSION=${GITHUB_REF#refs/tags/}" >> "$GITHUB_ENV"
+          else
+            echo "PKG_VERSION=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build Crypto++
+        run: |
+          set -eux
+          cd externals/cryptopp
+          make -j"$(nproc)"
+          mkdir -p ../../extractor/build/cryptopp/cryptopp
+          cp ./libcryptopp.a ../../extractor/build/cryptopp/cryptopp/libcryptopp.a
+
+      - name: Configure & build pkg_extractor
+        working-directory: extractor/build
+        run: |
+          set -eux
+          cmake --fresh .. \
+            -DCMAKE_BUILD_TYPE="${{ env.BUILD_TYPE }}" \
+            -DCMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE=ON \
+            -DCMAKE_C_COMPILER=clang \
+            -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_PREFIX_PATH="${MINGW_PREFIX}" \
+            -G Ninja
+          cmake --build . --config "${{ env.BUILD_TYPE }}" --parallel "$(nproc)"
+
+      - name: Package (exe + Clang runtime DLLs + scripts)
+        working-directory: extractor/build
+        run: |
+          set -eux
+          out="ShadPs4Plus-PkgExtractor-${PKG_VERSION}-windows"
+          mkdir -p "$out"
+          cp ./pkg_extractor.exe "$out/"
+          ldd ./pkg_extractor.exe | awk '/clang64/ {print $3}' | sort -u | while read -r dll; do
+            if [[ -f "$dll" ]]; then
+              cp "$dll" "$out/"
+            fi
+          done
+          strip -s "$out/pkg_extractor.exe" 2>/dev/null || true
+          cp ../install_pkg.bat ../batch_install.bat ../readme_windows.txt "$out/"
+          zip -r "../../pkg-extractor-windows-${PKG_VERSION}.zip" "$out"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pkg-extractor-windows-${{ env.PKG_VERSION }}
+          path: pkg-extractor-windows-${{ env.PKG_VERSION }}.zip
+
+  release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: [build-linux, build-macos, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Set version
+        run: echo "PKG_VERSION=${GITHUB_REF#refs/tags/}" >> "$GITHUB_ENV"
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: pkg-extractor-*
+          path: dist
+          merge-multiple: true
+
+      - name: Flatten downloaded zips
+        working-directory: dist
+        run: |
+          set -eux
+          find . -mindepth 2 -name '*.zip' -type f -exec mv -f -t . {} +
+          ls -la
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.zip
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
