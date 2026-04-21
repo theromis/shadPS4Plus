@@ -126,7 +126,7 @@ jobs:
         working-directory: extractor/build
         run: |
           set -eux
-          strip -s ./pkg_extractor
+          strip -Sx ./pkg_extractor
           out="ShadPs4Plus-PkgExtractor-${PKG_VERSION}-macos"
           mkdir -p "$out"
           cp ./pkg_extractor "$out/"
