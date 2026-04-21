@@ -4,20 +4,10 @@
 name: PKG Extractor
 
 on:
-  push:
-    branches: [ShadPs4Plus, main, master]
-    tags: ["v*"]
-  pull_request:
-    branches: [ShadPs4Plus, main, master]
-    paths:
-      - "extractor/**"
-      - "src/core/**"
-      - "src/common/**"
-      - ".github/workflows/pkg-extractor.yml"
   workflow_dispatch:
 
 concurrency:
-  group: pkg-extractor-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: pkg-extractor-${{ github.workflow }}-manual
   cancel-in-progress: true
 
 permissions:
@@ -40,12 +30,7 @@ jobs:
           sudo apt-get install -y build-essential cmake ninja-build clang zlib1g-dev
 
       - name: Set artifact version
-        run: |
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            echo "PKG_VERSION=${GITHUB_REF#refs/tags/}" >> "$GITHUB_ENV"
-          else
-            echo "PKG_VERSION=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
-          fi
+        run: echo "PKG_VERSION=${{ github.sha }}" >> "$GITHUB_ENV"
 
       - name: Build Crypto++
         run: |
@@ -96,12 +81,7 @@ jobs:
           brew list zlib &>/dev/null || brew install zlib
 
       - name: Set artifact version
-        run: |
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            echo "PKG_VERSION=${GITHUB_REF#refs/tags/}" >> "$GITHUB_ENV"
-          else
-            echo "PKG_VERSION=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
-          fi
+        run: echo "PKG_VERSION=${{ github.sha }}" >> "$GITHUB_ENV"
 
       - name: Build Crypto++
         run: |
@@ -165,11 +145,7 @@ jobs:
       - name: Set artifact version
         run: |
           set -eux
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            echo "PKG_VERSION=${GITHUB_REF#refs/tags/}" >> "$GITHUB_ENV"
-          else
-            echo "PKG_VERSION=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
-          fi
+          echo "PKG_VERSION=${{ github.sha }}" >> "$GITHUB_ENV"
 
       - name: Build Crypto++
         run: |
@@ -214,14 +190,13 @@ jobs:
           path: pkg-extractor-windows-${{ env.PKG_VERSION }}.zip
 
   release:
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     needs: [build-linux, build-macos, build-windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: Set version
-        run: echo "PKG_VERSION=${GITHUB_REF#refs/tags/}" >> "$GITHUB_ENV"
+      - name: Set version from commit
+        run: echo "PKG_VERSION=${{ github.sha }}" >> "$GITHUB_ENV"
 
       - uses: actions/download-artifact@v8
         with:
@@ -238,7 +213,14 @@ jobs:
 
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: pkg-extractor-${{ env.PKG_VERSION }}
+          name: pkg-extractor ${{ env.PKG_VERSION }}
+          target_commitish: ${{ github.sha }}
+          body: |
+            Artifacts built from commit [`${{ env.PKG_VERSION }}`](${{ github.server_url }}/${{ github.repository }}/commit/${{ env.PKG_VERSION }}).
           files: dist/*.zip
-          generate_release_notes: true
+          generate_release_notes: false
+          fail_on_unmatched_files: true
+          make_latest: "true"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
