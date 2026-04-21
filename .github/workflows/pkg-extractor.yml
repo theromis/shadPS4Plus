@@ -175,7 +175,7 @@ jobs:
         run: |
           set -eux
           cd externals/cryptopp
-          make -j"$(nproc)"
+          make -j"$(nproc)" CC=clang CXX=clang++
           mkdir -p ../../extractor/build/cryptopp/cryptopp
           cp ./libcryptopp.a ../../extractor/build/cryptopp/cryptopp/libcryptopp.a
 
