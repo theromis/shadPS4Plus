@@ -4,16 +4,16 @@
 name: PKG Extractor
 
 on:
-#  push:
-#    branches: [ShadPs4Plus, main, master]
-#    tags: ["v*"]
-#  pull_request:
-#    branches: [ShadPs4Plus, main, master]
-#    paths:
-#      - "extractor/**"
-#      - "src/core/**"
-#      - "src/common/**"
-#      - ".github/workflows/pkg-extractor.yml"
+  push:
+    branches: [ShadPs4Plus, main, master]
+    tags: ["v*"]
+  pull_request:
+    branches: [ShadPs4Plus, main, master]
+    paths:
+      - "extractor/**"
+      - "src/core/**"
+      - "src/common/**"
+      - ".github/workflows/pkg-extractor.yml"
   workflow_dispatch:
 
 concurrency:
@@ -30,7 +30,7 @@ jobs:
   build-linux:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -79,7 +79,7 @@ jobs:
           chmod +x "$out/pkg_extractor" "$out/install_pkg.sh" "$out/batch_install.sh"
           zip -r "../../pkg-extractor-linux-${PKG_VERSION}.zip" "$out"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: pkg-extractor-linux-${{ env.PKG_VERSION }}
           path: pkg-extractor-linux-${{ env.PKG_VERSION }}.zip
@@ -87,12 +87,13 @@ jobs:
   build-macos:
     runs-on: macos-14
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
 
       - name: Install dependencies
-        run: brew install cmake ninja zlib
+        run: |
+          brew list zlib &>/dev/null || brew install zlib
 
       - name: Set artifact version
         run: |
@@ -134,7 +135,7 @@ jobs:
           chmod +x "$out/pkg_extractor" "$out/install_pkg.sh" "$out/batch_install.sh"
           zip -r "../../pkg-extractor-macos-${PKG_VERSION}.zip" "$out"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: pkg-extractor-macos-${{ env.PKG_VERSION }}
           path: pkg-extractor-macos-${{ env.PKG_VERSION }}.zip
@@ -145,7 +146,7 @@ jobs:
       run:
         shell: msys2 {0}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -207,7 +208,7 @@ jobs:
           cp ../install_pkg.bat ../batch_install.bat ../readme_windows.txt "$out/"
           zip -r "../../pkg-extractor-windows-${PKG_VERSION}.zip" "$out"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: pkg-extractor-windows-${{ env.PKG_VERSION }}
           path: pkg-extractor-windows-${{ env.PKG_VERSION }}.zip
@@ -222,7 +223,7 @@ jobs:
       - name: Set version
         run: echo "PKG_VERSION=${GITHUB_REF#refs/tags/}" >> "$GITHUB_ENV"
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: pkg-extractor-*
           path: dist
