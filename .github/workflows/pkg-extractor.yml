@@ -4,16 +4,16 @@
 name: PKG Extractor
 
 on:
-  push:
-    branches: [ShadPs4Plus, main, master]
-    tags: ["v*"]
-  pull_request:
-    branches: [ShadPs4Plus, main, master]
-    paths:
-      - "extractor/**"
-      - "src/core/**"
-      - "src/common/**"
-      - ".github/workflows/pkg-extractor.yml"
+#  push:
+#    branches: [ShadPs4Plus, main, master]
+#    tags: ["v*"]
+#  pull_request:
+#    branches: [ShadPs4Plus, main, master]
+#    paths:
+#      - "extractor/**"
+#      - "src/core/**"
+#      - "src/common/**"
+#      - ".github/workflows/pkg-extractor.yml"
   workflow_dispatch:
 
 concurrency:
