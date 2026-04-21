@@ -76,10 +76,6 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Install dependencies
-        run: |
-          brew list zlib &>/dev/null || brew install zlib
-
       - name: Set artifact version
         run: echo "PKG_VERSION=${{ github.sha }}" >> "$GITHUB_ENV"
 
