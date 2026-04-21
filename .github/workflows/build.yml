@@ -3,7 +3,8 @@
 
 name: Build and Release
 
-#on: [push, pull_request]
+on:
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.event_name }}-${{ github.ref }}
