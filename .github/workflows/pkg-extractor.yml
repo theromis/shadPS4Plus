@@ -62,12 +62,12 @@ jobs:
           cp ./pkg_extractor "$out/"
           cp ../install_pkg.sh ../batch_install.sh ../readme_linux.txt "$out/"
           chmod +x "$out/pkg_extractor" "$out/install_pkg.sh" "$out/batch_install.sh"
-          zip -r "../../pkg-extractor-linux-${PKG_VERSION}.zip" "$out"
+          zip -r "../../pkg-extractor-linux-amd64-${PKG_VERSION}.zip" "$out"
 
       - uses: actions/upload-artifact@v7
         with:
-          name: pkg-extractor-linux-${{ env.PKG_VERSION }}
-          path: pkg-extractor-linux-${{ env.PKG_VERSION }}.zip
+          name: pkg-extractor-linux-amd64-${{ env.PKG_VERSION }}
+          path: pkg-extractor-linux-amd64-${{ env.PKG_VERSION }}.zip
 
   build-macos:
     runs-on: macos-14
@@ -109,12 +109,12 @@ jobs:
           cp ./pkg_extractor "$out/"
           cp ../install_pkg.sh ../batch_install.sh ../readme_linux.txt "$out/"
           chmod +x "$out/pkg_extractor" "$out/install_pkg.sh" "$out/batch_install.sh"
-          zip -r "../../pkg-extractor-macos-${PKG_VERSION}.zip" "$out"
+          zip -r "../../pkg-extractor-macos-arm64-${PKG_VERSION}.zip" "$out"
 
       - uses: actions/upload-artifact@v7
         with:
-          name: pkg-extractor-macos-${{ env.PKG_VERSION }}
-          path: pkg-extractor-macos-${{ env.PKG_VERSION }}.zip
+          name: pkg-extractor-macos-arm64-${{ env.PKG_VERSION }}
+          path: pkg-extractor-macos-arm64-${{ env.PKG_VERSION }}.zip
 
   build-windows:
     runs-on: windows-2022
@@ -178,12 +178,12 @@ jobs:
           done
           strip -s "$out/pkg_extractor.exe" 2>/dev/null || true
           cp ../install_pkg.bat ../batch_install.bat ../readme_windows.txt "$out/"
-          zip -r "../../pkg-extractor-windows-${PKG_VERSION}.zip" "$out"
+          zip -r "../../pkg-extractor-windows-amd64-${PKG_VERSION}.zip" "$out"
 
       - uses: actions/upload-artifact@v7
         with:
-          name: pkg-extractor-windows-${{ env.PKG_VERSION }}
-          path: pkg-extractor-windows-${{ env.PKG_VERSION }}.zip
+          name: pkg-extractor-windows-amd64-${{ env.PKG_VERSION }}
+          path: pkg-extractor-windows-amd64-${{ env.PKG_VERSION }}.zip
 
   release:
     needs: [build-linux, build-macos, build-windows]
